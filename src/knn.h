@@ -2,7 +2,6 @@
 
 #include "types.h"
 
-
 class KNNClassifier {
 public:
     KNNClassifier(unsigned int n_neighbors);
@@ -11,7 +10,7 @@ public:
 
     Vector predict(Matrix X);
 
-    uint predecir_fila(Vector fila, unsigned k);
+    uint predecir_fila(const Vector& fila);
 
 private:
 		unsigned int cant_vecinos;
