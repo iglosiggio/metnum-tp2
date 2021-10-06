@@ -1,5 +1,6 @@
 #pragma once
 #include "types.h"
+using namespace std;
 
 class PCA {
 public:
@@ -9,4 +10,6 @@ public:
 
     Eigen::MatrixXd transform(Matrix X);
 private:
+    unsigned int alpha;
+    Matrix T;
 };
