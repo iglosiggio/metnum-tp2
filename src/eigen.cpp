@@ -5,36 +5,24 @@
 
 using namespace std;
 
-Matrix outer(const Vector & u, const Vector & v){
-    Matrix out(u.size(), v.size());
-
-    for (int i = 0; i < u.size(); ++i) {
-        for (int j = 0; j < v.size(); ++j) {
-            out(i , j) = u[i] * v[j];
-        }
-    }
-
-    return out;
-}
-
 pair<double, Vector> power_iteration(const Matrix& X, unsigned num_iter, double eps)
 {
+    double eigenvalue;
     Vector b = Vector::Random(X.cols());
-    b = b / b.norm();
+    b /= b.norm();
 
     for (unsigned i = 0; i < num_iter; ++i) {
-
         Vector old(b);
         b = X * b;
-        b = b / b.norm();
+        // Actualizamos la aproximación del autovalor
+        eigenvalue = b.norm();
+        // Normalizamos la aproximación al autovector
+        b /= eigenvalue;
 
-        double cos_angle = b.transpose()*old;
-        if ( abs(cos_angle - 1) < eps) {
-            break;
-        }
+        double cos_angle = b.transpose() * old;
+        // Si nos movimos "poquito" entonces ya convergimos
+        if (abs(cos_angle - 1) < eps) break;
     }
-
-    double eigenvalue = b.transpose() * X * b;
 
     return make_pair(eigenvalue, b);
 }
@@ -48,11 +36,9 @@ pair<Vector, Matrix> get_first_eigenvalues(const Matrix& X, unsigned num, unsign
     for (unsigned i = 0; i < num; ++i) {
         pair<double, Vector> res = power_iteration(A, num_iter, epsilon);
         eigvalues[i] = res.first;
-        for (unsigned j = 0; j < A.rows(); ++j) {
-            eigvectors(j , i) = res.second[j];
-        }
+        eigvectors.col(i) = res.second;
 
-        A = A - res.first * outer(res.second, res.second);
+        A -= res.first * res.second * res.second.transpose();
     }
 
     return make_pair(eigvalues, eigvectors);
