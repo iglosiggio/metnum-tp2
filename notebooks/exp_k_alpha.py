@@ -26,7 +26,7 @@ def run_knn(k, X_train, Y_train, X_val, Y_val):
     Y_pred = clf_knn.predict(X_val)
     accuracy = accuracy_score(Y_val, Y_pred)
     cohen_kappa = cohen_kappa_score(Y_val, Y_pred)
-    f1 = f1_score(Y_val, Y_pred)
+    f1 = f1_score(Y_val, Y_pred, average='micro')
     print(f'Accuracy: {accuracy}')
     print(f'Cohen kappa: {cohen_kappa}')
     print(f'F1: {f1}', flush=True)
@@ -36,17 +36,6 @@ def main():
     results = []
 
     for k in range(1, 30):
-        print(f'=== K={k} ===', flush=True)
-        start_time = perf_counter_ns()
-        accuracy, cohen_kappa, f1 = run_knn(k, X_train, Y_train, X_val, Y_val)
-        end_time = perf_counter_ns()
-        results.append({
-            'kind': 'knn',
-            'elapsed_time': end_time - start_time,
-            'accuracy': accuracy,
-            'cohen_kappa': cohen_kappa,
-            'f1': f1
-        })
         for alpha in range(1, 200):
             print(f'=== K={k}, Alpha={alpha} ===', flush=True)
             start_time = perf_counter_ns()
@@ -63,6 +52,17 @@ def main():
                 'cohen_kappa': cohen_kappa,
                 'f1': f1
             })
+        print(f'=== K={k} ===', flush=True)
+        start_time = perf_counter_ns()
+        accuracy, cohen_kappa, f1 = run_knn(k, X_train, Y_train, X_val, Y_val)
+        end_time = perf_counter_ns()
+        results.append({
+            'kind': 'knn',
+            'elapsed_time': end_time - start_time,
+            'accuracy': accuracy,
+            'cohen_kappa': cohen_kappa,
+            'f1': f1
+        })
 
     print(results, flush=True)
     return results
