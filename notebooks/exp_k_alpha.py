@@ -47,6 +47,8 @@ def main():
             end_time = perf_counter_ns()
             results.append({
                 'kind': 'knnpca',
+                'k': k,
+                'alpha': alpha,
                 'elapsed_time': end_time - start_time,
                 'accuracy': accuracy,
                 'cohen_kappa': cohen_kappa,
@@ -58,6 +60,7 @@ def main():
         end_time = perf_counter_ns()
         results.append({
             'kind': 'knn',
+            'k': k,
             'elapsed_time': end_time - start_time,
             'accuracy': accuracy,
             'cohen_kappa': cohen_kappa,
