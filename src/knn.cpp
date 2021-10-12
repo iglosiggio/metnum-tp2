@@ -46,16 +46,13 @@ Vector KNNClassifier::predict_kdtree(Matrix X) {
 
 uint KNNClassifier::predecir_fila(const Vector& fila) {
 	using Dist = tuple<double, uint>;
-	uint i = 0;
 	vector<Dist> distancias(X_train.rows());
 	vector<uint> cantRepeticiones(10, 0);
 
 	// Calculo todas las distancias
-	std::generate(distancias.begin(), distancias.end(), [&]() {
-		Vector v = X_train.row(i);
-		double dist = (v - fila).squaredNorm();
-		return make_tuple(dist, i++);
-	});
+	Vector vec_distancias = (X_train.rowwise() - fila.transpose()).rowwise().squaredNorm().transpose();
+	for (uint i = 0; i < vec_distancias.size(); i++)
+		distancias[i] = make_tuple(vec_distancias(i), i);
 
 	// Agarro las k más chicas
 	std::partial_sort(distancias.begin(), distancias.begin() + cant_vecinos, distancias.end());
