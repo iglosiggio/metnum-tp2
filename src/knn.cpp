@@ -25,6 +25,25 @@ Vector KNNClassifier::predict(Matrix X) {
     return ret;
 }
 
+Vector KNNClassifier::predict_kdtree(Matrix X) {
+    KDTree kd(X);
+    // Creamos vector columna a devolver
+    auto ret = Vector(X.rows());
+
+    for (unsigned k = 0; k < X.rows(); ++k) {
+	vector<uint> cantRepeticiones(10, 0);
+	vector<std::tuple<uint, double>> vecinos = kd.nnsearch(X.row(k), cant_vecinos);
+	std::for_each(vecinos.cbegin(), vecinos.cend(), [&](std::tuple<uint, double> vecino) {
+		cantRepeticiones[y_train(std::get<0>(vecino), 0)]++;
+	});
+	// Tomo la etiqueta más votada
+	auto label_it = std::max_element(cantRepeticiones.cbegin(), cantRepeticiones.cend());
+	ret(k) = std::distance(cantRepeticiones.cbegin(), label_it);
+    }
+
+    return ret;
+}
+
 uint KNNClassifier::predecir_fila(const Vector& fila) {
 	using Dist = tuple<double, uint>;
 	uint i = 0;
