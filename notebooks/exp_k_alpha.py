@@ -74,7 +74,7 @@ def run_pca(arg):
         'f1': list(f1)
     }
 
-    print(f'=== START K={k}, Alpha={alpha} ===\n{repr(result)}', flush=True)
+    print(f'=== STOP K={k}, Alpha={alpha} ===\n{repr(result)}', flush=True)
     return result
 
 def main():
