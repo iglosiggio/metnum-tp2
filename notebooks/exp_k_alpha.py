@@ -94,9 +94,10 @@ def main():
     )
 
     with Pool(NUM_WORKERS) as p:
-        pca_results = p.imap_unordered(run_pca, pca_tasks)
         knn_results = p.imap_unordered(run_knn, knn_tasks)
         results.extend(knn_results)
+
+        pca_results = p.imap_unordered(run_pca, pca_tasks)
         results.extend(pca_results)
 
     print(results)
