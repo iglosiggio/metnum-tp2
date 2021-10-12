@@ -40,6 +40,7 @@ def run_knn(arg):
         'f1': list(f1)
     }
     print(f'=== END K={k} ===\n{repr(result)}', flush=True)
+    return result
 
 def run_pca(arg):
     k, alpha, X_train, Y_train, X_val, Y_val = arg
@@ -95,8 +96,8 @@ def main():
     with Pool(NUM_WORKERS) as p:
         pca_results = p.imap_unordered(run_pca, pca_tasks)
         knn_results = p.imap_unordered(run_knn, knn_tasks)
-        results.extend(pca_results)
         results.extend(knn_results)
+        results.extend(pca_results)
 
     print(results)
     return results
