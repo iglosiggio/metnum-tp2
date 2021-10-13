@@ -1,8 +1,10 @@
+from itertools import chain
+from pickle import dump
 from time import perf_counter_ns
 from multiprocessing import Pool
-from metnum import KNNClassifier, PCA
-from sklearn.metrics import accuracy_score, cohen_kappa_score, f1_score
+from pandas import DataFrame
 from sklearn.model_selection import KFold
+from metnum import KNNClassifier, PCA
 
 import pandas as pd
 
@@ -25,9 +27,6 @@ def run_knn(arg):
     time_knn_init_and_fit = perf_counter_ns()
     Y_pred = clf_knn.predict(X_val)
     time_knn_predict = perf_counter_ns()
-    accuracy = accuracy_score(Y_val, Y_pred)
-    cohen_kappa = cohen_kappa_score(Y_val, Y_pred)
-    f1 = f1_score(Y_val, Y_pred, average=None)
 
     result = {
         'kind': 'knn',
@@ -35,11 +34,10 @@ def run_knn(arg):
         'elapsed_time': time_knn_predict - time_start,
         'knn_init_and_fit_time': time_knn_init_and_fit - time_start,
         'knn_predict_time': time_knn_predict - time_knn_init_and_fit,
-        'accuracy': accuracy,
-        'cohen_kappa': cohen_kappa,
-        'f1': list(f1)
+        'y_pred': Y_pred,
+        'y_val': Y_val,
     }
-    print(f'=== END K={k} ===\n{repr(result)}', flush=True)
+    print(f'=== END K={k} ===', flush=True)
     return result
 
 def run_pca(arg):
@@ -57,9 +55,6 @@ def run_pca(arg):
     time_knn_init_and_fit = perf_counter_ns()
     Y_pred = clf_knn.predict(pc_X_val)
     time_knn_predict = perf_counter_ns()
-    accuracy = accuracy_score(Y_val, Y_pred)
-    cohen_kappa = cohen_kappa_score(Y_val, Y_pred)
-    f1 = f1_score(Y_val, Y_pred, average=None)
 
     result = {
         'kind': 'knnpca',
@@ -70,16 +65,14 @@ def run_pca(arg):
         'pca_transform_time': time_pca_transform - time_pca_init_and_fit,
         'knn_init_and_fit_time': time_knn_init_and_fit - time_pca_transform,
         'knn_predict_time': time_knn_predict - time_knn_init_and_fit,
-        'accuracy': accuracy,
-        'cohen_kappa': cohen_kappa,
-        'f1': list(f1)
+        'y_pred': Y_pred,
+        'y_val': Y_val,
     }
 
-    print(f'=== STOP K={k}, Alpha={alpha} ===\n{repr(result)}', flush=True)
+    print(f'=== STOP K={k}, Alpha={alpha} ===', flush=True)
     return result
 
 def main():
-    results = []
     kf = KFold(n_splits=5, shuffle=True, random_state=RANDOM_SEED)
     pca_tasks = (
         (k, alpha, X[train_idx], Y[train_idx], X[test_idx], Y[test_idx])
@@ -94,13 +87,14 @@ def main():
     )
 
     with Pool(NUM_WORKERS) as p:
-        knn_results = p.imap_unordered(run_knn, knn_tasks)
-        results.extend(knn_results)
-
         pca_results = p.imap_unordered(run_pca, pca_tasks)
-        results.extend(pca_results)
+        knn_results = p.imap_unordered(run_knn, knn_tasks)
 
-    print(results)
+        results = DataFrame(chain(pca_results, knn_results))
+
+    with open('data.pickle', 'wb') as file:
+        dump(results, file)
+
     return results
 
 if __name__ == '__main__':
