@@ -16,6 +16,8 @@ Y = df_train["label"].values.reshape(-1, 1)
 
 RANDOM_SEED = 0xCAFEC170
 NUM_WORKERS = 8
+MAX_K = 31
+MAX_ALPHA = 31
 
 def run_knn(arg):
     k, X_train, Y_train, X_fold_test, Y_fold_test, X_test, Y_test = arg
@@ -44,9 +46,9 @@ def run_knn(arg):
     return result
 
 def run_pca(arg):
-    k, alpha, X_train, Y_train, X_fold_test, Y_fold_test, X_test, Y_test = arg
-    print(f'=== START K={k}, Alpha={alpha} ===', flush=True)
-    time_start = perf_counter_ns()
+    alpha, X_train, Y_train, X_fold_test, Y_fold_test, X_test, Y_test = arg
+    print(f'=== START Alpha={alpha} ===', flush=True)
+    time_pca_start = perf_counter_ns()
     pca = PCA(alpha)
     pca.fit(X_train)
     time_pca_init_and_fit = perf_counter_ns()
@@ -54,48 +56,56 @@ def run_pca(arg):
     pc_X_fold_test = pca.transform(X_fold_test)
     pc_X_test = pca.transform(X_test)
     time_pca_transform = perf_counter_ns()
-    clf_knn = KNNClassifier(k)
-    clf_knn.fit(pc_X_train, Y_train)
-    time_knn_init_and_fit = perf_counter_ns()
-    Y_fold_pred = clf_knn.predict(pc_X_fold_test)
-    Y_pred = clf_knn.predict(pc_X_test)
-    time_knn_predict = perf_counter_ns()
+    time_pca = time_pca_transform - time_pca_start
+    print(f'=== STOP Alpha={alpha} ===', flush=True)
 
-    result = {
-        'kind': 'knnpca',
-        'k': k,
-        'alpha': alpha,
-        'elapsed_time': time_knn_predict - time_start,
-        'pca_init_and_fit_time': time_pca_init_and_fit - time_start,
-        'pca_transform_time': time_pca_transform - time_pca_init_and_fit,
-        'knn_init_and_fit_time': time_knn_init_and_fit - time_pca_transform,
-        'knn_predict_time': time_knn_predict - time_knn_init_and_fit,
-        'y_pred': Y_pred,
-        'y_test': Y_test,
-        'y_fold_pred': Y_fold_pred,
-        'y_fold_test': Y_fold_test,
-    }
+    results = []
 
-    print(f'=== STOP K={k}, Alpha={alpha} ===', flush=True)
-    return result
+    for k in range(1, MAX_K):
+        print(f'=== START K={k}, Alpha={alpha} ===', flush=True)
+        time_knn_start = perf_counter_ns()
+        clf_knn = KNNClassifier(k)
+        clf_knn.fit(pc_X_train, Y_train)
+        time_knn_init_and_fit = perf_counter_ns()
+        Y_fold_pred = clf_knn.predict(pc_X_fold_test)
+        Y_pred = clf_knn.predict(pc_X_test)
+        time_knn_predict = perf_counter_ns()
+        time_knn = time_knn_predict - time_knn_start
+        results.append({
+            'kind': 'knnpca',
+            'k': k,
+            'alpha': alpha,
+            'elapsed_time': time_pca + time_knn,
+            'pca_init_and_fit_time': time_pca_init_and_fit - time_pca_start,
+            'pca_transform_time': time_pca_transform - time_pca_init_and_fit,
+            'knn_init_and_fit_time': time_knn_init_and_fit - time_knn_start,
+            'knn_predict_time': time_knn_predict - time_knn_init_and_fit,
+            'y_pred': Y_pred,
+            'y_test': Y_test,
+            'y_fold_pred': Y_fold_pred,
+            'y_fold_test': Y_fold_test,
+        })
+        print(f'=== STOP K={k}, Alpha={alpha} ===', flush=True)
+
+    return results
 
 def main():
     X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=RANDOM_SEED)
     kf = KFold()
     pca_tasks = (
-        (k, alpha, X_train[train_idx], Y_train[train_idx], X_train[kftest_idx], Y_train[kftest_idx], X_test, Y_test)
+        (alpha, X_train[train_idx], Y_train[train_idx], X_train[kftest_idx], Y_train[kftest_idx], X_test, Y_test)
         for train_idx, kftest_idx in kf.split(X_train, Y_train)
-        for k in range(1, 31)
-        for alpha in range(1, 31)
+        for alpha in range(1, MAX_ALPHA)
     )
     knn_tasks = (
         (k, X_train[train_idx], Y_train[train_idx], X_train[kftest_idx], Y_train[kftest_idx], X_test, Y_test)
         for train_idx, kftest_idx in kf.split(X_train, Y_train)
-        for k in range(1, 31)
+        for k in range(1, MAX_K)
     )
 
     with Pool(NUM_WORKERS) as p:
         pca_results = p.imap_unordered(run_pca, pca_tasks)
+        pca_results = chain.from_iterable(pca_results)
         knn_results = p.imap_unordered(run_knn, knn_tasks)
 
         results = DataFrame(chain(pca_results, knn_results))
