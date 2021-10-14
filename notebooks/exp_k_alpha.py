@@ -95,10 +95,6 @@ def main():
     )
 
     with Pool(NUM_WORKERS) as p:
-        from itertools import islice
-        pca_tasks = islice(pca_tasks, 4)
-        knn_tasks = islice(knn_tasks, 2)
-
         pca_results = p.imap_unordered(run_pca, pca_tasks)
         knn_results = p.imap_unordered(run_knn, knn_tasks)
 
