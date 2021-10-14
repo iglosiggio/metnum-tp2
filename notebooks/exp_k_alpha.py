@@ -3,7 +3,7 @@ from pickle import dump
 from time import perf_counter_ns
 from multiprocessing import Pool
 from pandas import DataFrame
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, train_test_split
 from metnum import KNNClassifier, PCA
 
 import pandas as pd
@@ -18,14 +18,15 @@ RANDOM_SEED = 0xCAFEC170
 NUM_WORKERS = 8
 
 def run_knn(arg):
-    k, X_train, Y_train, X_val, Y_val = arg
+    k, X_train, Y_train, X_fold_test, Y_fold_test, X_test, Y_test = arg
     print(f'=== START K={k} ===', flush=True)
 
     time_start = perf_counter_ns()
     clf_knn = KNNClassifier(k)
     clf_knn.fit(X_train, Y_train)
     time_knn_init_and_fit = perf_counter_ns()
-    Y_pred = clf_knn.predict(X_val)
+    Y_fold_pred = clf_knn.predict(X_fold_test)
+    Y_pred = clf_knn.predict(X_test)
     time_knn_predict = perf_counter_ns()
 
     result = {
@@ -35,25 +36,29 @@ def run_knn(arg):
         'knn_init_and_fit_time': time_knn_init_and_fit - time_start,
         'knn_predict_time': time_knn_predict - time_knn_init_and_fit,
         'y_pred': Y_pred,
-        'y_val': Y_val,
+        'y_test': Y_test,
+        'y_fold_pred': Y_fold_pred,
+        'y_fold_test': Y_fold_test,
     }
     print(f'=== END K={k} ===', flush=True)
     return result
 
 def run_pca(arg):
-    k, alpha, X_train, Y_train, X_val, Y_val = arg
+    k, alpha, X_train, Y_train, X_fold_test, Y_fold_test, X_test, Y_test = arg
     print(f'=== START K={k}, Alpha={alpha} ===', flush=True)
     time_start = perf_counter_ns()
     pca = PCA(alpha)
     pca.fit(X_train)
     time_pca_init_and_fit = perf_counter_ns()
     pc_X_train = pca.transform(X_train)
-    pc_X_val = pca.transform(X_val)
+    pc_X_fold_test = pca.transform(X_fold_test)
+    pc_X_test = pca.transform(X_test)
     time_pca_transform = perf_counter_ns()
     clf_knn = KNNClassifier(k)
     clf_knn.fit(pc_X_train, Y_train)
     time_knn_init_and_fit = perf_counter_ns()
-    Y_pred = clf_knn.predict(pc_X_val)
+    Y_fold_pred = clf_knn.predict(pc_X_fold_test)
+    Y_pred = clf_knn.predict(pc_X_test)
     time_knn_predict = perf_counter_ns()
 
     result = {
@@ -66,27 +71,34 @@ def run_pca(arg):
         'knn_init_and_fit_time': time_knn_init_and_fit - time_pca_transform,
         'knn_predict_time': time_knn_predict - time_knn_init_and_fit,
         'y_pred': Y_pred,
-        'y_val': Y_val,
+        'y_test': Y_test,
+        'y_fold_pred': Y_fold_pred,
+        'y_fold_test': Y_fold_test,
     }
 
     print(f'=== STOP K={k}, Alpha={alpha} ===', flush=True)
     return result
 
 def main():
-    kf = KFold(n_splits=5, shuffle=True, random_state=RANDOM_SEED)
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=RANDOM_SEED)
+    kf = KFold()
     pca_tasks = (
-        (k, alpha, X[train_idx], Y[train_idx], X[test_idx], Y[test_idx])
+        (k, alpha, X_train[train_idx], Y_train[train_idx], X_train[kftest_idx], Y_train[kftest_idx], X_test, Y_test)
+        for train_idx, kftest_idx in kf.split(X_train, Y_train)
         for k in range(1, 30)
         for alpha in range(1, 30)
-        for train_idx, test_idx in kf.split(X, Y)
     )
     knn_tasks = (
-        (k, X[train_idx], Y[train_idx], X[test_idx], Y[test_idx])
+        (k, X_train[train_idx], Y_train[train_idx], X_train[kftest_idx], Y_train[kftest_idx], X_test, Y_test)
+        for train_idx, kftest_idx in kf.split(X_train, Y_train)
         for k in range(1, 30)
-        for train_idx, test_idx in kf.split(X, Y)
     )
 
     with Pool(NUM_WORKERS) as p:
+        from itertools import islice
+        pca_tasks = islice(pca_tasks, 4)
+        knn_tasks = islice(knn_tasks, 2)
+
         pca_results = p.imap_unordered(run_pca, pca_tasks)
         knn_results = p.imap_unordered(run_knn, knn_tasks)
 
