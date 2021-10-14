@@ -85,13 +85,13 @@ def main():
     pca_tasks = (
         (k, alpha, X_train[train_idx], Y_train[train_idx], X_train[kftest_idx], Y_train[kftest_idx], X_test, Y_test)
         for train_idx, kftest_idx in kf.split(X_train, Y_train)
-        for k in range(1, 30)
-        for alpha in range(1, 30)
+        for k in range(1, 31)
+        for alpha in range(1, 31)
     )
     knn_tasks = (
         (k, X_train[train_idx], Y_train[train_idx], X_train[kftest_idx], Y_train[kftest_idx], X_test, Y_test)
         for train_idx, kftest_idx in kf.split(X_train, Y_train)
-        for k in range(1, 30)
+        for k in range(1, 31)
     )
 
     with Pool(NUM_WORKERS) as p:
